@@ -179,7 +179,7 @@ class powerbarView extends WatchUi.DataField {
         bg.setColor(getBackgroundColor());
         bg.setMode(targetMode);
         bg.setTarget(target);
-        bg.setValue(mValue);
+        bg.setValue(power3s);
 
         // Set the foreground color and value
         var value = View.findDrawableById("value");

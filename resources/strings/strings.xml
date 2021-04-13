@@ -2,4 +2,8 @@
     <string id="AppName">powerbar</string>
 
     <string id="label">3s / Zone</string>
+
+    <string id="ftp">FTP</string>
+    <string id="ftpPrompt">Your current FTP</string>
+    
 </strings>
