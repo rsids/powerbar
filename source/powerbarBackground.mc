@@ -12,19 +12,20 @@ class Background extends WatchUi.Drawable {
 
     hidden var mColor;
     hidden var app;
-    hidden var _watt = 0;
+    hidden var _watt = 0.0;
+    hidden var _ftp = 0.0;
     hidden var _targetMode = 0;
     hidden var _target = [0,0];
     
     hidden var _scale = 0.0;
     hidden var _offset = 0.0;
-    hidden var _ftp = 258.00
 
     function initialize() {
         var dictionary = {
             :identifier => "Background"
         };
         app = Application.getApp();
+        _ftp = app.getProperty("ftp");
 
         Drawable.initialize(dictionary);
     }
@@ -53,39 +54,28 @@ class Background extends WatchUi.Drawable {
         switch(_targetMode) {
         	case 0:
 	        	drawNormal(dc);
+	        	_scale = 200.0;
 	        	break;
         	case 1:
         		drawZone(dc);
         		break;
         }
+		drawValue(dc, _watt);
         
         
     }
 
 	function drawNormal(dc) {
-//        var w = dc.getWidth();
-//        var h = dc.getHeight();
-//		var s = 0;
 		var zones = [];
 		for(var i = 0; i < app.zones.size(); i++) {
 			zones.add(app.zones[i] / 2);
 		}
 		drawBars(dc, COLORS, zones);
-//        for(var i = 0; i < 7; i++) {
-//        	var x = w;
-//        	if(i < 6) {
-//	        	x = app.zones[i] * w / 2;
-//        	}
-//        	dc.setColor( COLORS[i], Graphics.COLOR_TRANSPARENT);
-//        	dc.fillRectangle(s, h - 10, x, h);
-//        	s = x;
-//        }
-        
 	}
 	
 	function drawZone(dc) {
 	
-        var w = dc.getWidth();
+        var screenWidth = dc.getWidth();
         var h = dc.getHeight();
         var z = _target[0] - 2;
         if(z >= 0) {
@@ -99,57 +89,58 @@ class Background extends WatchUi.Drawable {
 	        var colors = [COLORS_GOOD, COLORS_ALMOST, COLORS_BAD, COLORS_WORST, COLORS_WORST];
 	        drawBars(dc, colors, zones);
 	        _offset = 0.0;
-	        _scale = app.zones[z] / .5;
+	        _scale = screenWidth / app.zones[z] / .5;
         } else if(z == 6) {
         	// Z7
 	        var zones = [0.2, 0.3, 0.4, 0.5];
 	        var colors = [COLORS_WORST, COLORS_BAD, COLORS_ALMOST, COLORS_GOOD, COLORS_GOOD];
 	        drawBars(dc, colors, zones);
+			
+          	_offset = 25.0;
+          	_scale = 50;
         } else {
         	// Z2 - Z6
 	        var zones = [0.15, 0.23, 0.31, 0.69, 0.77, 0.85];
 	        var colors = [COLORS_WORST, COLORS_BAD, COLORS_ALMOST, COLORS_GOOD, COLORS_ALMOST, COLORS_BAD, COLORS_WORST];
 	        drawBars(dc, colors, zones);
 	        
-	        var spread = zones[z] - zones[z-1];
-	        var scale = spread / .38;
-	        var middle = zones[z-1] + (spread / 2);
-			var percOfFtp = watt / ftp;
-	        
-	        // Calc % of FTP
-	        // Add / subtract from middle
-	        // Multiply by scale
+          	_scale =(screenWidth * 0.38) / (app.zones[zone] - app.zones[zone - 1]);
+          	_offset = screenWidth * 0.31 - _scale * app.zones[zone - 1];
         }
         
 	}
 	
 	function drawBars(dc, colors, zones) {
-		var w = dc.getWidth();
-        var h = dc.getHeight();
+		var screenWidth = dc.getWidth();
+        var screenHeight = dc.getHeight();
 		var start = 0;
         for(var i = 0; i <= zones.size(); i++) {
-        	var end = w;
+        	var end = screenWidth;
         	if(i < zones.size()) {
-	        	end = zones[i] * w;
+	        	end = zones[i] * screenWidth;
         	}
         	dc.setColor(colors[i], Graphics.COLOR_TRANSPARENT);
-        	dc.fillRectangle(start, h - 10, end, h);
+        	dc.fillRectangle(start, screenHeight - 10, end, screenHeight);
         	start = end;
         }
 	}
-	
-	function drawValue(dc, pos) {    
-        var h = dc.getHeight();
-		var w = dc.getWidth();
-		var x = w * pos;
+
+	function drawValue(dc, pwr) {
+		var screenWidth = dc.getWidth();
+        var screenHeight = dc.getHeight();
+		var perc = 100.0 * pwr / _ftp / 100.0;
+		var pos = perc * _scale + _offset;
+		// pos = 0 > pos ? 0 : pos;
+		// pos = pos < screenWidth ? pos : screenWidth;
+		System.println("power: " + pwr + "; ftp: " + _ftp + "; perc: " + perc + "; pos: " + pos);
 		dc.setPenWidth(2);
 		dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-		dc.drawLine(x, h, x, h-10);
+		dc.drawLine(pos, screenHeight, pos, screenHeight - 10);
 	}
 	
 	function getPosition() {
-		var percOfFtp = watt / ftp;
-		var positionInPercentage = (percOfFtp / scale);
+		var percOfFtp = _watt / _ftp;
+		var positionInPercentage = (percOfFtp / _scale);
 		return positionInPercentage;
 	}
 }
