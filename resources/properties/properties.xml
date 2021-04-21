@@ -1,3 +1,3 @@
 <properties>
-    <property id="ftp" type="number">0</property>
+    <property id="ftp" type="number">250</property>
 </properties>

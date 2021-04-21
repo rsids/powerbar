@@ -82,55 +82,65 @@ const SPORT_NAMES = [
 
 class powerbarView extends WatchUi.DataField {
 
-    hidden var mValue;
     hidden var powers = [0,0,0];
     hidden var power3s = 0.0;
     hidden var power = 0.0;
     hidden var powerPos = 0;
+    hidden var percentage = 0.0;
     hidden var ftp;
     hidden var zone;
     hidden var app;
     hidden var targetMode = 0;
     hidden var target = [0,0];
+    hidden var targetW = [0.0,0.0];
+	hidden var arrowHeight = 10;
+
+	hidden var dStep = 10.0;
+	hidden var dDir = 1;
 
     function initialize() {
         DataField.initialize();
         app = Application.getApp();
-        mValue = 0.0f;
-        ftp = 258.0;
+        ftp = app.getProperty("ftp");
         zone = 1;
     }
 
     // Set your layout here. Anytime the size of obscurity of
     // the draw context is changed this will be called.
     function onLayout(dc) {
-        var obscurityFlags = DataField.getObscurityFlags();
-
-        // Top left quadrant so we'll use the top left layout
-        if (obscurityFlags == (OBSCURE_TOP | OBSCURE_LEFT)) {
-            View.setLayout(Rez.Layouts.TopLeftLayout(dc));
-
-        // Top right quadrant so we'll use the top right layout
-        } else if (obscurityFlags == (OBSCURE_TOP | OBSCURE_RIGHT)) {
-            View.setLayout(Rez.Layouts.TopRightLayout(dc));
-
-        // Bottom left quadrant so we'll use the bottom left layout
-        } else if (obscurityFlags == (OBSCURE_BOTTOM | OBSCURE_LEFT)) {
-            View.setLayout(Rez.Layouts.BottomLeftLayout(dc));
-
-        // Bottom right quadrant so we'll use the bottom right layout
-        } else if (obscurityFlags == (OBSCURE_BOTTOM | OBSCURE_RIGHT)) {
-            View.setLayout(Rez.Layouts.BottomRightLayout(dc));
-
-        // Use the generic, centered layout
-        } else {
-            View.setLayout(Rez.Layouts.MainLayout(dc));
-            var labelView = View.findDrawableById("label");
-            labelView.locY = labelView.locY - 16;
-            var valueView = View.findDrawableById("value");
-            valueView.locY = valueView.locY + 7;
-        }
-
+		var height = dc.getHeight();
+		System.println(height);
+		var labelOffset = -16;
+		var valueOffset = 7;
+		var rangeOffset = -25;
+		if(height >= 125) {
+	    	View.setLayout(Rez.Layouts.MainLayoutMD(dc));
+	    	labelOffset = -18;
+	    	valueOffset = 9;
+	    	rangeOffset = -45;
+	    	arrowHeight = 15;
+	    } else if (height > 78) {
+	    	View.setLayout(Rez.Layouts.MainLayoutSM(dc));
+	    	arrowHeight = 10;
+			labelOffset = -25;
+			valueOffset = -2;
+	    	rangeOffset = -35;
+	    } else {
+	    	View.setLayout(Rez.Layouts.MainLayoutXS(dc));
+			labelOffset = -25;
+			valueOffset = -2;
+	    	arrowHeight = 10;
+	    }
+	    
+	    var labelView = View.findDrawableById("label");
+	    labelView.locY = labelView.locY + labelOffset;
+	    var valueView = View.findDrawableById("value");
+	    valueView.locY = valueView.locY + valueOffset;
+	    
+	    var vMin = View.findDrawableById("vMin");
+	    var vMax = View.findDrawableById("vMax");
+	    vMin.locY = vMin.locY + rangeOffset;
+	    vMax.locY = vMax.locY + rangeOffset;
         View.findDrawableById("label").setText(Rez.Strings.label);
         return true;
     }
@@ -145,28 +155,40 @@ class powerbarView extends WatchUi.DataField {
         targetMode = TARGET_MODE_NONE;
         if(act != null && act.sport == SPORT_CYCLING && act.step.targetType == POWER_3S) {
         	targetMode = act.step.targetValueLow < 1000 ? TARGET_MODE_ZONE : TARGET_MODE_POWER;
-        	target = [act.step.targetValueLow, act.step.targetValueHigh];
-        	System.println(SPORT_NAMES[act.sport] +": " + TARGET_NAMES[act.step.targetType] + "; " + INTENSITY_NAMES[act.intensity] + "; " + act.step.targetValueLow + " / " + act.step.targetValueHigh);
-        }
+        	if(targetMode == TARGET_MODE_ZONE) {
+        		target = [act.step.targetValueLow -1, act.step.targetValueHigh];
+        		targetW[0] = 0.0;
+    			if(target[0] == 7) {
+					targetW[1] = 999;
+				} else {
+    				targetW[1] = ftp * app.zones[target[0] - 1];
+				}
+        		if(target[0] > 1) {
+        			targetW[0] = ftp * app.zones[target[0] - 2];
+				}
+        	} else {
+        		target = [act.step.targetValueLow - 1000, act.step.targetValueHigh - 1000];
+        		targetW = [act.step.targetValueLow - 1000, act.step.targetValueHigh - 1000];
+        	}
+        }        
+        		
         if(info has :currentPower){
             if(info.currentPower != null){
                 power = info.currentPower;
+
                 powers[powerPos] = power;
                 powerPos++;
                 if(powerPos == 3) {
                 	powerPos = 0;
             	}
-            	power3s = (powers[0] + powers[1] + powers[2]) / 3;
-            	var perc = power3s / ftp;
+            	power3s = (powers[0] + powers[1] + powers[2]) / 3.0;
+            	percentage = power3s / ftp;
+            	zone = 7;
             	for(var i = app.zones.size() - 1; i >= 0; i--) {
-            		if(perc < app.zones[i]) {
+            		if(percentage < app.zones[i]) {
             			zone = i+1;
             		}
             	}
-            	
-            	mValue = perc * 100;
-            } else {
-                mValue = 0.0f;
             }
         }
     }
@@ -180,19 +202,43 @@ class powerbarView extends WatchUi.DataField {
         bg.setMode(targetMode);
         bg.setTarget(target);
         bg.setValue(power3s);
+        bg.setPercentage(percentage);
+        bg.setArrowHeight(arrowHeight);
 
         // Set the foreground color and value
         var value = View.findDrawableById("value");
+        var vMin =  View.findDrawableById("vMin");
+        var vMax = View.findDrawableById("vMax");
         var fgColor = Graphics.COLOR_BLACK;
         if (getBackgroundColor() == Graphics.COLOR_BLACK) {
             fgColor = Graphics.COLOR_WHITE;
         }
 	    value.setColor(fgColor);
+	    vMin.setColor(fgColor);
+	    vMax.setColor(fgColor);
         value.setText(power3s.format("%.0f") + " / Z" + zone);
+        if(targetMode == TARGET_MODE_NONE) {
+            vMin.setText("");
+            vMax.setText("");
+        } else {
+	        if(targetW[0] > 0) {
+	        	// Zones 2 - 6 or defined watts
+	            vMin.setText(targetW[0].format("%.0f"));
+	        	vMax.setText(targetW[1].format("%.0f"));
+	        	if(targetW[1] == 999) {
+		        	// Zone 7
+		            vMin.setText("");
+		            vMax.locX = dc.getWidth() * 0.4;
+		        	vMax.setText(">" + targetW[0].format("%.0f"));
+	        	}
+	        } else {
+	        	// Zone 1
+	            vMin.setText("");
+	            vMax.locX = dc.getWidth() * 0.5;
+	        	vMax.setText("< " + targetW[1].format("%.0f"));
+	        }
+        }
 
-		var w = dc.getWidth();
-		var h = dc.getHeight();
-		var x = w * mValue / 200;
         // Call parent's onUpdate(dc) to redraw the layout
         View.onUpdate(dc);
     }

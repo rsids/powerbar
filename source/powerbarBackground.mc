@@ -10,10 +10,12 @@ const COLORS_GOOD = 0x00ff22;
 
 class Background extends WatchUi.Drawable {
 
-    hidden var mColor;
+    hidden var _color;
     hidden var app;
+    hidden var _arrowHeight = 10.0;
     hidden var _watt = 0.0;
     hidden var _ftp = 0.0;
+    hidden var _percentage = 0.0;
     hidden var _targetMode = 0;
     hidden var _target = [0,0];
     
@@ -26,12 +28,15 @@ class Background extends WatchUi.Drawable {
         };
         app = Application.getApp();
         _ftp = app.getProperty("ftp");
+        if(_ftp == null) {
+        	_ftp = 100.0;
+    	}
 
         Drawable.initialize(dictionary);
     }
 
     function setColor(color) {
-        mColor = color;
+        _color = color;
     }
     
     function setValue(watt) {
@@ -40,107 +45,172 @@ class Background extends WatchUi.Drawable {
     
     function setTarget(target) {
     	_target = target;
-    
     }
     
     function setMode(targetMode) {
     	_targetMode = targetMode;
-    
     }
+    
+    function setPercentage(percentage) {
+    	_percentage = percentage;
+	}
+	function setArrowHeight(arrowHeight) {
+		_arrowHeight = arrowHeight;
+	}
 
     function draw(dc) {
-        dc.setColor(Graphics.COLOR_TRANSPARENT, mColor);
-        dc.clear();
-        switch(_targetMode) {
-        	case 0:
-	        	drawNormal(dc);
-	        	_scale = 200.0;
-	        	break;
-        	case 1:
-        		drawZone(dc);
-        		break;
-        }
-		drawValue(dc, _watt);
-        
-        
+    dc.setColor(Graphics.COLOR_TRANSPARENT, _color);
+    dc.clear();
+    switch (_targetMode) {
+      case 0:
+        _scale = 0.8;
+        _offset = -30.0;
+        drawNormal(dc);
+        break;
+      case 1:
+        drawZone(dc);
+        break;
+      case 2:
+        drawCustom(dc);
+        break;
     }
+    drawValue(dc, _watt);
+  }
 
-	function drawNormal(dc) {
-		var zones = [];
-		for(var i = 0; i < app.zones.size(); i++) {
-			zones.add(app.zones[i] / 2);
-		}
-		drawBars(dc, COLORS, zones);
-	}
-	
-	function drawZone(dc) {
-	
-        var screenWidth = dc.getWidth();
-        var h = dc.getHeight();
-        var z = _target[0] - 2;
-        if(z >= 0) {
-	        var zMin = z == 0 ? 0 : app.zones[z-1];
-        	var zMax = app.zones[z];
-        }
-        
-        if(z == 0) {
-	        // Z1
-	        var zones = [0.5, 0.6, 0.7, 0.8];
-	        var colors = [COLORS_GOOD, COLORS_ALMOST, COLORS_BAD, COLORS_WORST, COLORS_WORST];
-	        drawBars(dc, colors, zones);
-	        _offset = 0.0;
-	        _scale = screenWidth / app.zones[z] / .5;
-        } else if(z == 6) {
-        	// Z7
-	        var zones = [0.2, 0.3, 0.4, 0.5];
-	        var colors = [COLORS_WORST, COLORS_BAD, COLORS_ALMOST, COLORS_GOOD, COLORS_GOOD];
-	        drawBars(dc, colors, zones);
-			
-          	_offset = 25.0;
-          	_scale = 50;
-        } else {
-        	// Z2 - Z6
-	        var zones = [0.15, 0.23, 0.31, 0.69, 0.77, 0.85];
-	        var colors = [COLORS_WORST, COLORS_BAD, COLORS_ALMOST, COLORS_GOOD, COLORS_ALMOST, COLORS_BAD, COLORS_WORST];
-	        drawBars(dc, colors, zones);
-	        
-          	_scale =(screenWidth * 0.38) / (app.zones[zone] - app.zones[zone - 1]);
-          	_offset = screenWidth * 0.31 - _scale * app.zones[zone - 1];
-        }
-        
-	}
-	
-	function drawBars(dc, colors, zones) {
-		var screenWidth = dc.getWidth();
-        var screenHeight = dc.getHeight();
-		var start = 0;
-        for(var i = 0; i <= zones.size(); i++) {
-        	var end = screenWidth;
-        	if(i < zones.size()) {
-	        	end = zones[i] * screenWidth;
-        	}
-        	dc.setColor(colors[i], Graphics.COLOR_TRANSPARENT);
-        	dc.fillRectangle(start, screenHeight - 10, end, screenHeight);
-        	start = end;
-        }
-	}
+  function drawNormal(dc) {
+    var zones = [];
+    for (var i = 0; i < app.zones.size(); i++) {
+      zones.add(app.zones[i] * _scale);
+    }
+    drawBars(dc, COLORS, zones, _offset / 100);
+  }
 
-	function drawValue(dc, pwr) {
-		var screenWidth = dc.getWidth();
-        var screenHeight = dc.getHeight();
-		var perc = 100.0 * pwr / _ftp / 100.0;
-		var pos = perc * _scale + _offset;
-		// pos = 0 > pos ? 0 : pos;
-		// pos = pos < screenWidth ? pos : screenWidth;
-		System.println("power: " + pwr + "; ftp: " + _ftp + "; perc: " + perc + "; pos: " + pos);
-		dc.setPenWidth(2);
-		dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-		dc.drawLine(pos, screenHeight, pos, screenHeight - 10);
-	}
+  /**
+   *
+   * @param dc DC
+   */
+  function drawZone(dc) {
+    var z = _target[0] - 1;
+    var yS1, yS2, yZ1, yZ2;
+    var zones, colors;
+    if (z == 0) {
+      // Z1
+      zones = [0.5, 0.6, 0.7, 0.8];
+      colors = [
+        COLORS_GOOD,
+        COLORS_ALMOST,
+        COLORS_BAD,
+        COLORS_WORST,
+        COLORS_WORST,
+      ];
+
+      yS1 = 0;
+      yS2 = zones[0];
+      yZ1 = 0;
+      yZ2 = app.zones[z];
+    } else if (z == 6) {
+      // Z7
+      zones = [0.2, 0.3, 0.4, 0.5];
+      colors = [
+        COLORS_WORST,
+        COLORS_BAD,
+        COLORS_ALMOST,
+        COLORS_GOOD,
+        COLORS_GOOD,
+      ];
+
+      yS1 = 0.4;
+      yS2 = 1;
+      yZ1 = app.zones[z - 1];
+      yZ2 = yZ1 + 1.0;
+    } else {
+      // Z2 - Z6
+      zones = [0.15, 0.23, 0.31, 0.69, 0.77, 0.85];
+      colors = [
+        COLORS_WORST,
+        COLORS_BAD,
+        COLORS_ALMOST,
+        COLORS_GOOD,
+        COLORS_ALMOST,
+        COLORS_BAD,
+        COLORS_WORST,
+      ];
+
+      yS1 = zones[2];
+      yS2 = zones[3];
+      yZ1 = app.zones[z - 1];
+      yZ2 = app.zones[z];
+    }
+    drawBars(dc, colors, zones, 0);
+    _scale = (yS2 - yS1) / (yZ2 - yZ1);
+    _offset = (yS1 * 100) - (_scale * yZ1 * 100);
+  }
+
+  function drawCustom(dc) {
+    var yS1, yS2, yZ1, yZ2;
+    var zones, colors;
+    zones = [0.15, 0.23, 0.31, 0.69, 0.77, 0.85];
+    colors = [
+      COLORS_WORST,
+      COLORS_BAD,
+      COLORS_ALMOST,
+      COLORS_GOOD,
+      COLORS_ALMOST,
+      COLORS_BAD,
+      COLORS_WORST,
+    ];
+
+    yS1 = zones[2];
+    yS2 = zones[3];
+    yZ1 = (100.0 * _target[0]) / _ftp / 100;
+    yZ2 = (100.0 * _target[1]) / _ftp / 100;
+    drawBars(dc, colors, zones, 0);
+    _scale = (yS2 - yS1) / (yZ2 - yZ1);
+    _offset = (yS1 * 100) - (_scale * yZ1 * 100);
+  }
+
+  function drawBars(dc, colors, zones, offset) {
+    var screenWidth = dc.getWidth();
+    var screenHeight = dc.getHeight();
+    var x = 0;
+    var w = 0;
+    for (var i = 0; i <= zones.size(); i++) {
+      if (i == zones.size()) {
+        w = 1 - zones[i - 1] - offset;
+      } else {
+        w = zones[i] - x;
+      }
+      dc.setColor(colors[i], Graphics.COLOR_TRANSPARENT);
+      
+      var xo = (x + offset) * screenWidth;
+      var wo = w * screenWidth;
+      dc.fillRectangle(
+        Math.floor((x + offset) * screenWidth),
+        screenHeight - 10,
+        Math.floor(w * screenWidth) + 1,
+        10
+      );
+	  if (i < zones.size()) {
+      	x = zones[i] * 1;
+	  }
+    }
+  }
+
+  function drawValue(dc, pwr) {
+    var screenWidth = dc.getWidth();
+    var screenHeight = dc.getHeight();
+    var perc = _percentage * 100;
+    var pos = ((perc * _scale + _offset) / 100) * screenWidth;
+	pos = pos < 0 ? 0 : pos;
+	pos = pos > screenWidth ? screenWidth: pos;
 	
-	function getPosition() {
-		var percOfFtp = _watt / _ftp;
-		var positionInPercentage = (percOfFtp / _scale);
-		return positionInPercentage;
-	}
+    dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+    dc.fillPolygon([
+      [pos + 1, screenHeight - 10],
+      [pos - 4, screenHeight - (10  + _arrowHeight)],
+      [pos + 1, screenHeight - 10],
+      [pos + 5, screenHeight - (10  + _arrowHeight)],
+      [pos - 4, screenHeight - (10  + _arrowHeight)],
+    ]);
+  }
 }
