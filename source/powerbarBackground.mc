@@ -125,7 +125,7 @@ class Background extends WatchUi.Drawable {
       yZ2 = yZ1 + 1.0;
     } else {
       // Z2 - Z6
-      zones = [0.15, 0.23, 0.31, 0.69, 0.77, 0.85];
+      zones = [0.10, 0.18, 0.26, 0.74, 0.82, 0.90];
       colors = [
         COLORS_WORST,
         COLORS_BAD,
@@ -149,7 +149,7 @@ class Background extends WatchUi.Drawable {
   function drawCustom(dc) {
     var yS1, yS2, yZ1, yZ2;
     var zones, colors;
-    zones = [0.15, 0.23, 0.31, 0.69, 0.77, 0.85];
+    zones = [0.10, 0.18, 0.26, 0.74, 0.82, 0.90];
     colors = [
       COLORS_WORST,
       COLORS_BAD,

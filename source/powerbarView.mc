@@ -79,25 +79,33 @@ const SPORT_NAMES = [
     "TRANSITION",
 ];
 
-
 class powerbarView extends WatchUi.DataField {
 
+	// The last 3 measured watts
     hidden var powers = [0,0,0];
+    // Average 3s calculated with powers
     hidden var power3s = 0.0;
+    // Current power in watts
     hidden var power = 0.0;
     hidden var powerPos = 0;
+    // Current power in percent of ftp
     hidden var percentage = 0.0;
+    // FTP as set by user
     hidden var ftp;
+    // Current zone
     hidden var zone;
     hidden var app;
+    // targetMode:
+    // 0: no target, show ftp levels
+    // 1: specific zone
+    // 2: specific watts
     hidden var targetMode = 0;
+    // The target in either zone, or percent of ftp
     hidden var target = [0,0];
+    // The target in watts
     hidden var targetW = [0.0,0.0];
 	hidden var arrowHeight = 10;
-
-	hidden var dStep = 10.0;
-	hidden var dDir = 1;
-
+	
     function initialize() {
         DataField.initialize();
         app = Application.getApp();
@@ -109,7 +117,6 @@ class powerbarView extends WatchUi.DataField {
     // the draw context is changed this will be called.
     function onLayout(dc) {
 		var height = dc.getHeight();
-		System.println(height);
 		var labelOffset = -16;
 		var valueOffset = 7;
 		var rangeOffset = -25;
@@ -117,14 +124,14 @@ class powerbarView extends WatchUi.DataField {
 	    	View.setLayout(Rez.Layouts.MainLayoutMD(dc));
 	    	labelOffset = -18;
 	    	valueOffset = 9;
-	    	rangeOffset = -45;
+	    	rangeOffset = -35;
 	    	arrowHeight = 15;
 	    } else if (height > 78) {
 	    	View.setLayout(Rez.Layouts.MainLayoutSM(dc));
 	    	arrowHeight = 10;
 			labelOffset = -25;
 			valueOffset = -2;
-	    	rangeOffset = -35;
+	    	rangeOffset = -32;
 	    } else {
 	    	View.setLayout(Rez.Layouts.MainLayoutXS(dc));
 			labelOffset = -25;
@@ -150,28 +157,33 @@ class powerbarView extends WatchUi.DataField {
     // Note that compute() and onUpdate() are asynchronous, and there is no
     // guarantee that compute() will be called before onUpdate().
     function compute(info) {
-        // See Activity.Info in the documentation for available information.
-        var act = Activity.getCurrentWorkoutStep();
+        
         targetMode = TARGET_MODE_NONE;
-        if(act != null && act.sport == SPORT_CYCLING && act.step.targetType == POWER_3S) {
-        	targetMode = act.step.targetValueLow < 1000 ? TARGET_MODE_ZONE : TARGET_MODE_POWER;
-        	if(targetMode == TARGET_MODE_ZONE) {
-        		target = [act.step.targetValueLow -1, act.step.targetValueHigh];
-        		targetW[0] = 0.0;
-    			if(target[0] == 7) {
-					targetW[1] = 999;
-				} else {
-    				targetW[1] = ftp * app.zones[target[0] - 1];
-				}
-        		if(target[0] > 1) {
-        			targetW[0] = ftp * app.zones[target[0] - 2];
-				}
-        	} else {
-        		target = [act.step.targetValueLow - 1000, act.step.targetValueHigh - 1000];
-        		targetW = [act.step.targetValueLow - 1000, act.step.targetValueHigh - 1000];
-        	}
-        }        
-        		
+        if(info has :getCurrentWorkoutStep) {
+	        // See Activity.Info in the documentation for available information.
+	        var act = info.getCurrentWorkoutStep();
+	        if(act != null && act.sport == SPORT_CYCLING && act.step.targetType == POWER_3S) {
+	        	// if targetValueLow < 1000, it means targetValueLow contains the target ZONE
+	        	targetMode = act.step.targetValueLow < 1000 ? TARGET_MODE_ZONE : TARGET_MODE_POWER;
+	        	if(targetMode == TARGET_MODE_ZONE) {
+	        		target = [act.step.targetValueLow -1, act.step.targetValueHigh];
+	        		targetW[0] = 0.0;
+	    			if(target[0] == 7) {
+						targetW[1] = 999;
+					} else {
+	    				targetW[1] = ftp * app.zones[target[0] - 1];
+					}
+	        		if(target[0] > 1) {
+	        			targetW[0] = ftp * app.zones[target[0] - 2];
+					}
+	        	} else {
+	        		// If it's > 1000, it means a target watt, increased by 1000
+	        		target = [act.step.targetValueLow - 1000, act.step.targetValueHigh - 1000];
+	        		targetW = [act.step.targetValueLow - 1000, act.step.targetValueHigh - 1000];
+	        	}
+	        }   
+        }     
+        
         if(info has :currentPower){
             if(info.currentPower != null){
                 power = info.currentPower;
@@ -183,6 +195,7 @@ class powerbarView extends WatchUi.DataField {
             	}
             	power3s = (powers[0] + powers[1] + powers[2]) / 3.0;
             	percentage = power3s / ftp;
+            	// Determine zone based on avg power
             	zone = 7;
             	for(var i = app.zones.size() - 1; i >= 0; i--) {
             		if(percentage < app.zones[i]) {
