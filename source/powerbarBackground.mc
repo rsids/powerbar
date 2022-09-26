@@ -203,8 +203,11 @@ class Background extends WatchUi.Drawable {
     var pos = ((perc * _scale + _offset) / 100) * screenWidth;
 	pos = pos < 0 ? 0 : pos;
 	pos = pos > screenWidth ? screenWidth: pos;
-	
-    dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
+	var fgColor = Graphics.COLOR_BLACK;
+	if (_color == Graphics.COLOR_BLACK) {
+        fgColor = Graphics.COLOR_WHITE;
+    }
+    dc.setColor(fgColor, Graphics.COLOR_TRANSPARENT);
     dc.fillPolygon([
       [pos + 1, screenHeight - 10],
       [pos - 4, screenHeight - (10  + _arrowHeight)],
